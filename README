@@ -1,0 +1,4 @@
+This repository contains some Guile Scheme code I have found useful. Currently:
+- vset.scm: sets from vhashes
+- vhash.scm: vhash ancillary functions
+- fstruct.scm: "fstructs", personal preference to GOOPS class semantics
