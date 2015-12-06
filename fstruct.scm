@@ -1,8 +1,19 @@
 (define-module (fstruct)
-               #:use-module (oop goops)
-               #:use-module (srfi srfi-26)
-               #:export (define-fstruct make-fstruct fstruct-spec fstruct-ref))
+  #:use-module (oop goops)
+  #:use-module (srfi srfi-26)
+  #:use-module (ice-9 match)
+  #:export (fstruct-ref make-fstruct define-fstruct fstruct-spec ; core functionality
+	    fstruct-class-spec)
+  #:export (fstruct->list fstruct->alist fstruct-map fstruct-map* ; ancillary
+	    fstruct-destruct fstruct-destruct* fstruct-adestruct
+	    fstruct-adestruct* fstruct-map-slot fstruct-let)
+  #:export (define-box make-box unbox box-map)) ; box functions
 
+(export fstruct-ref make-fstruct define-fstruct fstruct-spec)
+(export	fstruct->list fstruct->alist fstruct-map fstruct-map*
+	fstruct-destruct fstruct-adestruct fstruct-adestruct* fstruct-map-slot)
+
+; core functionality
 (define-generic fstruct-spec)
 (define-syntax-rule (define-fstruct name slots ...)
                     (begin (define-class name () slots ...)
@@ -13,37 +24,67 @@
   (define struct (make class))
   (for-each (cut slot-set! struct <> <>) (fstruct-spec struct) vals)
   struct)
+(define fstruct-class class-of)
+(define (fstruct-class-spec class)
+  (fstruct-spec (make class)))
 
-#|
-(use-modules (oop goops))
+; ancillary
+(define (fstruct->list struct)
+  (map (λ (slot) (fstruct-ref struct slot))
+       (fstruct-spec struct)))
 
-(define-syntax-rule (define-fstruct name slots ...)
-                    (define-class name ()
-                      (spec #:allocation #:class #:init-value '(slots ...))
-                      obj))
+(define (fstruct->alist struct)
+  (map cons (fstruct-spec struct) (fstruct->list struct)))
 
-(define (fstruct-raw name spec vals)
-  (cond ((not (equal? (null? spec) (null? vals)))
-         (error "mismatched slots:" spec vals))
-        ((null? spec) (lambda (x) (error "Not in struct: " x name spec)))
-        (else
-          (let ((l (fstruct-raw name (cdr spec) (cdr vals))))
-              (lambda (x)
-                (if (eq? x (car spec))
-                  (car vals)
-                  (l x)))))))
-  
-(define (make-struct class . vals)
-  (define struct (make class))
-  (slot-set! struct 'obj
-             (fstruct-raw (class-name class) (slot-ref struct 'spec) vals))
-  struct)
+#;(define (fstruct-map f . structs)
+(define spec (fstruct-spec (car structs)))
+(define class (class-of (car structs)))
+(apply make-fstruct class
+       (map (λ (slot)
+	      (apply f (map (cut fstruct-ref <> slot) structs)))
+	    spec)))
 
-(define (fstruct-ref struct item)
-  ((slot-ref struct 'obj) item))
-|#
+(define (fstruct-map* f . structs)
+  (apply make-fstruct (class-of (car structs))
+	 (apply map f (fstruct-spec (car structs))
+		(map fstruct->list structs))))
 
-;(define-fstruct <io-set> in-set out-set)
-;(define a (make-struct <io-set> '() '()))
+(define (fstruct-map f . structs)
+  (apply fstruct-map* (λ args (apply f (cdr args))) structs))
 
-;(export fstruct-ref make-fstruct define-fstruct fstruct-spec)
+(define (fstruct-destruct . structs)
+  (map fstruct->list structs))
+
+(define (fstruct-destruct* . structs)
+  (apply map list (apply fstruct-destruct structs)))
+
+(define (fstruct-adestruct . structs)
+  (map fstruct->alist structs))
+
+(define (fstruct-adestruct* . structs)
+  (apply map list (fstruct-spec (car structs))
+	 (apply fstruct-destruct structs)))
+
+(define (fstruct-map-slot slot f struct)
+  (fstruct-map (λ (s arg)
+		 (if (eqv? s slot)
+		     (f arg)
+		     arg))
+	       struct))
+
+(define-syntax fstruct-let
+  (syntax-rules ()
+    ((_ ((struct vars ...) rest ...) body ...)
+     (match (fstruct->list struct)
+       ((vars ...) (fstruct-let (rest ...) body ...))))
+    ((_ () body ...) (let () body ...))))
+
+; "box" supplementary fstructs
+(define-syntax-rule (define-box cname) (define-fstruct cname obj))
+(define (make-box class obj)
+  (make-fstruct class obj))
+
+(define unbox (cut fstruct-ref <> 'obj))
+;(define (box-map f box) (make-box (class-of box) (f (unbox box))))
+;(define (box-map f box) (fstruct-map f box))
+(define (box-map f . boxes) (apply fstruct-map f boxes))
