@@ -1,4 +1,4 @@
-(define-module (fstruct)
+(define-module (djf fstruct)
   #:use-module (oop goops)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
@@ -7,7 +7,8 @@
   #:export (fstruct->list fstruct->alist fstruct-map fstruct-map* ; ancillary
 	    fstruct-destruct fstruct-destruct* fstruct-adestruct
 	    fstruct-adestruct* fstruct-map-slot fstruct-let)
-  #:export (define-box make-box unbox box-map)) ; box functions
+  #:export (define-box make-box unbox box-map)
+  #:export (define-unit)) ; box functions
 
 (export fstruct-ref make-fstruct define-fstruct fstruct-spec)
 (export	fstruct->list fstruct->alist fstruct-map fstruct-map*
@@ -66,11 +67,11 @@
 	 (apply fstruct-destruct structs)))
 
 (define (fstruct-map-slot slot f struct)
-  (fstruct-map (λ (s arg)
-		 (if (eqv? s slot)
-		     (f arg)
-		     arg))
-	       struct))
+  (fstruct-map* (λ (s arg)
+		  (if (eqv? s slot)
+		      (f arg)
+		      arg))
+		struct))
 
 (define-syntax fstruct-let
   (syntax-rules ()
@@ -88,3 +89,9 @@
 ;(define (box-map f box) (make-box (class-of box) (f (unbox box))))
 ;(define (box-map f box) (fstruct-map f box))
 (define (box-map f . boxes) (apply fstruct-map f boxes))
+
+; "unit" supplementary fstructs
+(define-syntax-rule (define-unit cname elm)
+  (begin (define-fstruct cname)
+	 (define elm (make-fstruct cname))))
+;(define (make-unit class) (make-fstruct class))

@@ -1,8 +1,8 @@
-(define-module (vhash)
+(define-module (djf vhash)
                #:use-module (ice-9 vlist)
                #:use-module (srfi srfi-1)
                #:use-module (srfi srfi-26)
-               #:use-module (vset)
+               #:use-module (djf vset)
                #:re-export (alist->vhash))
 
 (define-public (vhash-over key value vhash)

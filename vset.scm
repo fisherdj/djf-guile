@@ -1,4 +1,4 @@
-(define-module (vset))
+(define-module (djf vset))
 
 (use-modules (srfi srfi-1)
              (srfi srfi-26)
